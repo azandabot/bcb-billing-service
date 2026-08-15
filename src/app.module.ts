@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ClockModule } from './common/clock/clock.module';
 import { configuration } from './config/configuration';
 import { validateEnvironment } from './config/environment.schema';
 import { HealthModule } from './health/health.module';
@@ -12,6 +13,7 @@ import { HealthModule } from './health/health.module';
       load: [configuration],
       validate: validateEnvironment,
     }),
+    ClockModule,
     HealthModule,
   ],
 })
