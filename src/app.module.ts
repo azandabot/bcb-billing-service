@@ -1,9 +1,10 @@
 import { Module, ValidationPipe } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_PIPE } from '@nestjs/core';
+import { APP_FILTER, APP_PIPE } from '@nestjs/core';
 import { AccountsModule } from './accounts/accounts.module';
 import { BillingModule } from './billing/billing.module';
 import { ClockModule } from './common/clock/clock.module';
+import { DomainExceptionFilter } from './common/filters/domain-exception.filter';
 import { configuration } from './config/configuration';
 import { validateEnvironment } from './config/environment.schema';
 import { CurrenciesModule } from './currencies/currencies.module';
@@ -36,6 +37,7 @@ import { HealthModule } from './health/health.module';
           transformOptions: { enableImplicitConversion: false },
         }),
     },
+    { provide: APP_FILTER, useClass: DomainExceptionFilter },
   ],
 })
 export class AppModule {}
