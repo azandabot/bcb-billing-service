@@ -1,6 +1,7 @@
 import { Module, ValidationPipe } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_PIPE } from '@nestjs/core';
+import { AccountsModule } from './accounts/accounts.module';
 import { ClockModule } from './common/clock/clock.module';
 import { configuration } from './config/configuration';
 import { validateEnvironment } from './config/environment.schema';
@@ -18,6 +19,7 @@ import { HealthModule } from './health/health.module';
     ClockModule,
     HealthModule,
     CurrenciesModule,
+    AccountsModule,
   ],
   providers: [
     // Registered as providers rather than via app.useGlobalPipes so that tests
