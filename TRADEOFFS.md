@@ -13,13 +13,25 @@ Read more about the decisions behind it:
 - [What the brief leaves open](#what-the-brief-leaves-open)
 - [The decisions I expect to be questioned](#the-decisions-i-expect-to-be-questioned)
 - [What I deliberately did not build](#what-i-deliberately-did-not-build)
+- [Patterns I used, and the ones I stayed away
+  from](#patterns-i-used-and-the-ones-i-stayed-away-from)
 - [Known weaknesses in what I built](#known-weaknesses-in-what-i-built)
 - [What I would do next](#what-i-would-do-next-in-order)
 
 ## Current architecture
 
-One process. Three feature modules sitting on a shared kernel with the dependencies all pointing the
-same way.
+It is a **modular monolith** built on **ports and adapters**, with **DDD tactical patterns** in the
+domain and the billing rules isolated as a **pure function**. One process, three feature modules
+sitting on a shared kernel, and the dependencies all pointing the same way.
+
+Naming it matters more than drawing it, because a diagram shows you the shape while a name tells you
+which rules I was holding myself to. Ports and adapters is the one doing the work here. The domain
+says what it needs, infrastructure says how, and the arrow only ever points inward.
+
+I should say what it is not as well. It is not Clean Architecture, because there are no use case
+classes and no request model per use case, and it is not full DDD, because there are no bounded
+contexts and no aggregate consistency rules. It has the dependency rule and it has the tactical
+patterns. Claiming the rest would just invite you to ask me where my interactors are.
 
 ```mermaid
 flowchart TB
@@ -304,6 +316,37 @@ in code rather than in prose:
 - Domain errors carry a code and know nothing about HTTP, so a different transport only needs a new
   mapping at the edge.
 
+## Patterns I used, and the ones I stayed away from
+
+Every row below is something you can check in the code rather than take on trust.
+
+| Pattern | Where it is |
+| ------- | ----------- |
+| Ports and adapters | `AccountRepository`, `CurrencyRepository` and `Clock` are abstract classes; the in-memory classes implement them |
+| Dependency injection | Every collaborator arrives through a constructor. There is no container reach-in anywhere |
+| Repository | A collection of valid domain objects. It stores and finds, it does not decide |
+| Value object | `Money`, `UtcDay`, `DayRange` and `MonthFraction`, all frozen, all guarding their own rules |
+| Entity | `Account` and `Currency`, which derive what they can and freeze the rest |
+| Static factory | `Money.fromGbp`, `BillingPeriod.create` and `UtcDay.fromIsoString` are the only ways in, so an invalid one cannot be built |
+| Explicit mapper | `toBillResponse` and friends, so the wire shape and the domain shape can move apart |
+| Centralised error translation | One filter turns any failure into one envelope |
+
+The list I care about more is the one below, because avoiding something is a decision and using
+something often is not.
+
+| What I stayed away from | How you can tell |
+| ----------------------- | ---------------- |
+| Anemic domain model | The usual NestJS shape, where entities are bags of public fields and every rule lives in a service. Seven files here call `Object.freeze` and the rules sit with the data |
+| Fat controller | Every controller is a delegate and a map. There is no branching in any of them |
+| Primitive obsession | Money is not a number, a date is not a `Date`, and a rate is not a float |
+| Floating point money | Integer pence, integer month fractions, integer basis points. The one place a float appears it is rejected unless it is exact |
+| Leaky abstraction | Domain errors carry a code and not a status. Nothing in the domain imports `HttpStatus` |
+| Service locator | No `moduleRef.get` anywhere. If a class needs something it asks in its constructor |
+| Temporal coupling | No `new Date()` in a business rule, which is the only reason the discount can be tested at all |
+| Speculative generality | No broker, no database and no microservices because a job advert mentioned them |
+| Exception swallowing | One filter and three try/catch blocks, each with the reason written next to it |
+| Domain objects on the wire | Mappers everywhere, so renaming a private field is not a breaking change for a client |
+
 ## Known weaknesses in what I built
 
 These all follow from decisions I made on purpose, and I would rather list them than have you find
@@ -353,7 +396,8 @@ than working out a fresh one.
 4. Per-transaction records to replace the count and retire the even distribution assumption.
 5. The month-to-date allowance counter, which closes the proration gap.
 6. `bill.issued` published through a transactional outbox.
-7. Readiness probes which check something real, and shipping the logs somewhere they can be searched.
+7. Readiness probes which check something real, and shipping the logs somewhere they can
+   be searched.
 The request logging and correlation ids are in place already; what is missing is a JSON transport
 and somewhere to send it.
 

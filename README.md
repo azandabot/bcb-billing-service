@@ -5,7 +5,11 @@
 </picture>
 </p>
 
-# BCB Billing Service
+<h1 align="center">a modular monolith built on ports and adapters</h1>
+
+<p align="center">
+<sub>DDD tactical patterns in the domain, and the billing rules isolated as a pure function</sub>
+</p>
 
 Billing looks like a simple problem until you start writing the tests for it. This service works out
 what an account owes in GBP and it does so with three rules: a monthly base fee, a fee for every
@@ -34,6 +38,23 @@ Read more about the billing service:
 - [Configuration](#configuration)
 
 ## Architecture
+
+Since a name is worth more than a diagram when somebody asks, here is the name. This is a **modular
+monolith** built on **ports and adapters**, which you may know as hexagonal architecture, with **DDD
+tactical patterns** in the domain and the billing rules isolated as a **pure function**.
+
+Each of those is a thing you can go and check. Modular monolith means one deployable divided into
+feature modules which only reach each other through services. Ports and adapters means the domain
+says what it needs and infrastructure says how, so `AccountRepository`, `CurrencyRepository` and
+`Clock` are ports and the in-memory classes are adapters. Tactical patterns means the domain is
+built from value objects and entities which enforce their own rules rather than from bags of fields.
+And the pure function is `calculateBill`, which imports nothing from NestJS at all.
+
+I will also tell you what this is not, because naming things you did not do is how you avoid being
+caught out. It is not Clean Architecture, since there are no use case classes and no request model
+per use case. It is not full DDD either, because there are no bounded contexts and no aggregate
+consistency rules. It has the dependency rule and the tactical patterns, and I would rather say that
+than claim the whole thing.
 
 ```mermaid
 flowchart TB
@@ -94,9 +115,10 @@ them leans back. Services are the public face of a module while repositories sta
 owns them, so persistence never becomes something the whole app shares.
 
 **I kept HTTP out of the domain entirely.** Business rules throw typed domain errors which carry a
-code. The exception filter is the only file in the project which imports `HttpStatus`, and its map
-is declared `satisfies Record<DomainErrorCode, HttpStatus>`, so adding a code and forgetting to give
-it a status breaks the build instead of returning a 500 nobody asked for.
+code. Nothing in the domain imports `HttpStatus`, and the filter is the only place which decides
+which status a domain error becomes. Its map is declared `satisfies Record<DomainErrorCode,
+HttpStatus>`, so adding a code and forgetting to give it a status breaks the build instead of
+returning a 500 nobody asked for.
 
 **I never let money become a float.** Amounts are integer pence and month fractions build up as
 integers scaled by `lcm(28, 29, 30, 31) = 377580`. Do it with floats and `31/31 + 3/30` gives you
