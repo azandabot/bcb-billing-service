@@ -28,10 +28,10 @@ Naming it matters more than drawing it, because a diagram shows you the shape wh
 which rules I was holding myself to. Ports and adapters is the one doing the work here. The domain
 says what it needs, infrastructure says how, and the arrow only ever points inward.
 
-I should say what it is not as well. It is not Clean Architecture, because there are no use case
-classes and no request model per use case, and it is not full DDD, because there are no bounded
-contexts and no aggregate consistency rules. It has the dependency rule and it has the tactical
-patterns. Claiming the rest would just invite you to ask me where my interactors are.
+It is not Clean Architecture, because there are no use case classes and no request model per use
+case, and it is not full DDD, because there are no bounded contexts and no aggregate consistency
+rules. It has the dependency rule and it has the tactical patterns. Claiming the rest would just
+invite you to ask me where my interactors are.
 
 ```mermaid
 flowchart TB
@@ -75,7 +75,7 @@ without HTTP and without mocks.
 
 Given what the product actually is, an accounts and payments platform settling fiat and crypto, this
 is the shape I would argue for. The domain model does not change. What changes is that the seams I
-left in the code, which I go through further down, turn into real boundaries.
+left in the code turn into real boundaries, and those seams are listed further down.
 
 | | | |
 |:--:|:--:|:--|
@@ -139,7 +139,7 @@ that is Kafka. Notifications and analytics need cheap fan-out and could not care
 and that is Pub/Sub. Pick one for both and you either pay for guarantees you do not need or go
 without the ones you do.
 
-**Redis holds the allowance counter**, which closes a real gap I go through further down.
+**Redis holds the allowance counter**, which closes a real gap listed under known weaknesses.
 
 ## How I read the brief
 
@@ -212,13 +212,12 @@ Postgres, where `[)` is the default. The last value marks the boundary rather th
 This is the decision I expect you to question first, because billing 2026-01-01 to 2026-01-31 gives
 you £29.03 rather than £30.00 and at a glance that looks like a bug.
 
-Here is the reasoning. A billing run does not price one period in isolation, it walks forward, and
-the natural way to walk forward is to take the period you have just billed and use its end as the
-next period's start. Half open survives that. January runs 1 January to 1 February and comes to 31
-days, February runs 1 February to 1 March and comes to 28, which is 59 days altogether and exactly
-the span from 1 January to 1 March. Nothing is billed twice and nothing is skipped. Chain an
-inclusive end the same way and the 31st of January is the end of one period and the start of the
-next, so it gets charged twice.
+A billing run does not price one period in isolation, it walks forward, and the natural way to walk
+forward is to take the period you have just billed and use its end as the next period's start. Half
+open survives that. January runs 1 January to 1 February and comes to 31 days, February runs 1
+February to 1 March and comes to 28, which is 59 days altogether and exactly the span from 1 January
+to 1 March. Nothing is billed twice and nothing is skipped. Chain an inclusive end the same way and
+the 31st of January is the end of one period and the start of the next, so it gets charged twice.
 
 There are two smaller reasons on top of that. The length of a period becomes a plain subtraction
 rather than a subtraction and a plus one, and that plus one is where off by one errors live. And an
@@ -229,11 +228,10 @@ Being inclusive also gets awkward the moment a timestamp is involved, because in
 `2026-02-01T00:00:00Z` means including one extra instant, and an instant is not a thing you can
 bill.
 
-I want to be straight about this though. **Inclusive is a perfectly defensible choice** and plenty
-of billing systems use it. It is not wrong, it is a different convention, and what actually matters
-is picking one and holding it everywhere. I picked half open for the chaining property above. What I
-owed you either way was to say which one I picked and why, rather than leaving you to work it out
-from a figure.
+**Inclusive is a perfectly defensible choice** and plenty of billing systems use it. It is not
+wrong, it is a different convention, and what actually matters is picking one and holding it
+everywhere. I picked half open for the chaining property above. What I owed you either way was to
+say which one I picked and why, rather than leaving you to work it out from a figure.
 
 So I stated the convention early in the README, made every example end on the first of a month so
 the obvious reading gives round numbers, and named a test after the £29.03 case so it reads as a
@@ -290,7 +288,7 @@ service already knew every valid currency then `POST /currencies` would have not
 Opening an account against a currency nobody registered gives you a 422 rather than a 400 or a 404.
 The payload itself is fine so a 400 would bury it among the schema errors, and a 404 reads like you
 asked for a route which does not exist. A 400 is defensible and I would not fight you very hard on
-it, but it should be a decision rather than an accident, so here it is written down.
+it, but it should be a decision rather than an accident.
 
 ## What I deliberately did not build
 
@@ -331,8 +329,8 @@ Every row below is something you can check in the code rather than take on trust
 | Explicit mapper | `toBillResponse` and friends, so the wire shape and the domain shape can move apart |
 | Centralised error translation | One filter turns any failure into one envelope |
 
-The list I care about more is the one below, because avoiding something is a decision and using
-something often is not.
+Avoiding something is a decision. Using something often is not, which is why the second list is the
+more useful one.
 
 | What I stayed away from | How you can tell |
 | ----------------------- | ---------------- |
@@ -397,9 +395,8 @@ than working out a fresh one.
 5. The month-to-date allowance counter, which closes the proration gap.
 6. `bill.issued` published through a transactional outbox.
 7. Readiness probes which check something real, and shipping the logs somewhere they can
-   be searched.
-The request logging and correlation ids are in place already; what is missing is a JSON transport
-and somewhere to send it.
+be searched. The request logging and correlation ids are in place already; what is missing is a JSON
+transport and somewhere to send it.
 
 That order is deliberate. Every item on it is either a correctness fix or the thing a correctness
 fix depends on. The message broker comes last because it adds the most operational surface and the

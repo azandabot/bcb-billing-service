@@ -19,10 +19,9 @@ after the account is created.
 The brief says a database is not required so everything lives in memory. Every repository still sits
 behind an interface though, which means swapping in a real database is a one line change per module.
 
-One thing to know before you run anything. A billing period includes its start day and stops before
-its end day, so `2026-01-01` to `2026-02-01` is exactly one month. I explain that properly under
-[how a bill is calculated](#how-a-bill-is-calculated), and it is worth reading before you are
-surprised by a figure.
+Before you run anything: a billing period includes its start day and stops before its end day, so
+`2026-01-01` to `2026-02-01` is exactly one month. The full reasoning is under [how a bill is
+calculated](#how-a-bill-is-calculated).
 
 If you want to know why things are built the way they are, the trade-offs I weighed up and what I
 would do differently in production, that all lives in **[TRADEOFFS.md](TRADEOFFS.md)**.
@@ -39,22 +38,21 @@ Read more about the billing service:
 
 ## Architecture
 
-Since a name is worth more than a diagram when somebody asks, here is the name. This is a **modular
-monolith** built on **ports and adapters**, which you may know as hexagonal architecture, with **DDD
-tactical patterns** in the domain and the billing rules isolated as a **pure function**.
+This is a **modular monolith** built on **ports and adapters**, which you may know as hexagonal
+architecture, with **DDD tactical patterns** in the domain and the billing rules isolated as a
+**pure function**.
 
-Each of those is a thing you can go and check. Modular monolith means one deployable divided into
+Every one of those is checkable in the code. Modular monolith means one deployable divided into
 feature modules which only reach each other through services. Ports and adapters means the domain
 says what it needs and infrastructure says how, so `AccountRepository`, `CurrencyRepository` and
 `Clock` are ports and the in-memory classes are adapters. Tactical patterns means the domain is
 built from value objects and entities which enforce their own rules rather than from bags of fields.
 And the pure function is `calculateBill`, which imports nothing from NestJS at all.
 
-I will also tell you what this is not, because naming things you did not do is how you avoid being
-caught out. It is not Clean Architecture, since there are no use case classes and no request model
-per use case. It is not full DDD either, because there are no bounded contexts and no aggregate
-consistency rules. It has the dependency rule and the tactical patterns, and I would rather say that
-than claim the whole thing.
+It is not Clean Architecture, since there are no use case classes and no request model per use case.
+It is not full DDD either, because there are no bounded contexts and no aggregate consistency rules.
+It has the dependency rule and the tactical patterns and nothing beyond that. Naming what something
+is not is how you avoid being caught claiming the whole thing.
 
 ```mermaid
 flowchart TB
@@ -98,11 +96,10 @@ src/
   config/        typed and validated environment configuration
 ```
 
-Two kinds of comment appear in the code and they are doing different jobs, so it is worth saying
-which is which. A `/** */` block documents a symbol, meaning a class, a method or a type, and your
-editor shows it when you hover over the thing it sits above. A `//` line explains a decision inside
-a body, so why a line exists rather than what it does. A comment which is doing neither of those is
-a comment I have not written.
+Two kinds of comment appear in the code and they do different jobs. A `/** */` block documents a
+symbol, meaning a class, a method or a type, and your editor shows it when you hover over the thing
+it sits above. A `//` line explains a decision inside a body, so why a line exists rather than what
+it does. A comment which is doing neither of those is a comment I have not written.
 
 Four decisions carry most of the weight here, and they are the four I would defend first.
 
@@ -140,9 +137,9 @@ And the logging itself, because logging must never be the reason a request fails
 error is thrown as a typed domain error and the filter turns it into the envelope above, which is
 why you will not find a try/catch in any service.
 
-One smaller thing worth pointing out. The validation pipe and the exception filter are registered as
-`APP_PIPE` and `APP_FILTER` providers rather than through `app.useGlobalPipes`, which means any test
-which boots the application module gets production request handling for free.
+The validation pipe and the exception filter are registered as `APP_PIPE` and `APP_FILTER` providers
+rather than through `app.useGlobalPipes`, which means any test which boots the application module
+gets production request handling for free.
 
 ## Running it
 
@@ -200,9 +197,9 @@ in `test/billing.e2e-spec.ts`. Run the same request against a live service today
 comes back as zero, because your account was opened today and the promotion never reaches January.
 There is a copy-pasteable run further down which does show a discount.
 
-You will notice every amount comes back twice. `minorUnits` is the real number in pence and it is
-the one which adds up, while `amount` is there for you to display. The `details` block is included
-so you can check a bill by hand without opening a single source file.
+Every amount comes back twice. `minorUnits` is the real number in pence and it is the one which adds
+up, while `amount` is there for you to display. The `details` block is included so you can check a
+bill by hand without opening a single source file.
 
 ```json
 {
@@ -272,7 +269,7 @@ pays for it twice. It also makes the length of a period a plain subtraction inst
 and a plus one, and the plus one is where off by one errors come from.
 
 An inclusive end would have been a perfectly reasonable choice too, so long as I stuck to it
-everywhere. I go through the full argument in [TRADEOFFS.md](TRADEOFFS.md#half-open-periods).
+everywhere. The full argument is in [TRADEOFFS.md](TRADEOFFS.md#half-open-periods).
 
 Every calendar month the period touches adds its own fraction of that month:
 
