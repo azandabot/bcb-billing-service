@@ -21,6 +21,7 @@ export class AccountsService {
     if (await this.accounts.findById(dto.accountId)) {
       throw new AccountAlreadyExistsError(dto.accountId);
     }
+    // The call is for the throw, not the return
     await this.currenciesService.getRegistered(dto.currency);
     const account = new Account(
       dto.accountId,

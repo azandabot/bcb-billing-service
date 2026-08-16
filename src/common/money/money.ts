@@ -41,6 +41,9 @@ export class Money {
     }
     const exact = amount * MINOR_UNITS_PER_UNIT;
     const minorUnits = Math.round(exact);
+    // Check that the amount has at most two decimal places by comparing the
+    // rounded value to the exact value. If they differ by more than a small
+    // epsilon, it means there were more than two decimal places.
     if (Math.abs(minorUnits - exact) > 1e-6) {
       throw new InvalidMoneyAmountError(
         `${amount} has more than two decimal places`,
