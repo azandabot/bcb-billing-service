@@ -77,6 +77,12 @@ src/
   config/        typed and validated environment configuration
 ```
 
+Two kinds of comment appear in the code and they are doing different jobs, so it is worth saying
+which is which. A `/** */` block documents a symbol, meaning a class, a method or a type, and your
+editor shows it when you hover over the thing it sits above. A `//` line explains a decision inside
+a body, so why a line exists rather than what it does. A comment which is doing neither of those is
+a comment I have not written.
+
 Four decisions carry most of the weight here, and they are the four I would defend first.
 
 **I kept the billing rules as a pure function.** `calculateBill` imports nothing from NestJS,
