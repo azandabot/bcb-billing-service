@@ -97,6 +97,21 @@ integers scaled by `lcm(28, 29, 30, 31) = 377580`. Do it with floats and `31/31 
 `1.1`, but `100 × 1.1` is `110.00000000000001`, so `ceil` returns 111 and you have just handed out a
 free transaction. There is a regression test pinning that exact period.
 
+**Every request is logged, and every request can be traced.** A global interceptor writes one line
+when the response finishes, carrying the method, the path, the status and how long it took, at error
+level for a 5xx, warn for a 4xx and log otherwise. Each request also gets an id, which comes back on
+the `x-request-id` header and appears in the error body, so a caller reporting a problem can quote
+one string and I can find the exact line. If a gateway already sent an id I reuse it, but only after
+checking it, because that value ends up in a log line and I am not going to let somebody forge one.
+Request bodies are never logged, since they carry fees and account identifiers.
+
+Three places use a try/catch, and only three. Starting the service, because a process which cannot
+start has to say why and exit non-zero rather than sit there looking healthy. Writing an error
+response, because an error raised after the response has begun cannot be answered with a second one.
+And the logging itself, because logging must never be the reason a request fails. Everywhere else an
+error is thrown as a typed domain error and the filter turns it into the envelope above, which is
+why you will not find a try/catch in any service.
+
 One smaller thing worth pointing out. The validation pipe and the exception filter are registered as
 `APP_PIPE` and `APP_FILTER` providers rather than through `app.useGlobalPipes`, which means any test
 which boots the application module gets production request handling for free.

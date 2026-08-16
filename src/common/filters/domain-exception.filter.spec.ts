@@ -32,27 +32,46 @@ describe('DomainExceptionFilter', () => {
   let json: jest.Mock;
   let host: ArgumentsHost;
   let logError: jest.SpyInstance;
+  let headersSent: boolean;
 
   beforeEach(() => {
     json = jest.fn();
     status = jest.fn().mockReturnValue({ json });
+    headersSent = false;
     host = {
       switchToHttp: () => ({
         getRequest: () => ({ url: '/accounts', method: 'POST' }),
-        getResponse: () => ({ status }),
+        getResponse: () => ({
+          status,
+          get headersSent() {
+            return headersSent;
+          },
+        }),
       }),
     } as unknown as ArgumentsHost;
     logError = jest
       .spyOn(Logger.prototype, 'error')
       .mockImplementation(() => undefined);
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  function capture(exception: unknown): ErrorResponseDto {
-    filter.catch(exception, host);
+  function capture(exception: unknown, requestId?: string): ErrorResponseDto {
+    const scoped = {
+      switchToHttp: () => ({
+        getRequest: () => ({ url: '/accounts', method: 'POST', requestId }),
+        getResponse: () => ({
+          status,
+          get headersSent() {
+            return headersSent;
+          },
+        }),
+      }),
+    } as unknown as ArgumentsHost;
+    filter.catch(exception, scoped);
     return json.mock.calls[0][0] as ErrorResponseDto;
   }
 
@@ -105,6 +124,37 @@ describe('DomainExceptionFilter', () => {
     expect(body.code).toBe(code);
     expect(body.statusCode).toBeGreaterThanOrEqual(HttpStatus.BAD_REQUEST);
     expect(body.statusCode).toBeLessThan(HttpStatus.INTERNAL_SERVER_ERROR);
+  });
+
+  it('carries the request id into the envelope when one is present', () => {
+    const body = capture(new AccountNotFoundError('acc-001'), 'req-abc');
+
+    expect(body.requestId).toBe('req-abc');
+  });
+
+  it('omits requestId entirely when the request was never stamped', () => {
+    const body = capture(new AccountNotFoundError('acc-001'));
+
+    expect(body.requestId).toBeUndefined();
+  });
+
+  it('does not try to answer twice when the response has already been sent', () => {
+    headersSent = true;
+
+    filter.catch(new AccountNotFoundError('acc-001'), host);
+
+    expect(status).not.toHaveBeenCalled();
+    expect(json).not.toHaveBeenCalled();
+  });
+
+  it('survives a failure while writing the error response', () => {
+    status.mockImplementation(() => {
+      throw new Error('socket closed');
+    });
+
+    expect(() =>
+      filter.catch(new AccountNotFoundError('acc-001'), host),
+    ).not.toThrow();
   });
 
   it('reports validation failures with the failed constraints', () => {

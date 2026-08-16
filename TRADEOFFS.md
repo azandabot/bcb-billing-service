@@ -353,7 +353,9 @@ than working out a fresh one.
 4. Per-transaction records to replace the count and retire the even distribution assumption.
 5. The month-to-date allowance counter, which closes the proration gap.
 6. `bill.issued` published through a transactional outbox.
-7. Structured logging with correlation IDs, and readiness probes which check something real.
+7. Readiness probes which check something real, and shipping the logs somewhere they can be searched.
+The request logging and correlation ids are in place already; what is missing is a JSON transport
+and somewhere to send it.
 
 That order is deliberate. Every item on it is either a correctness fix or the thing a correctness
 fix depends on. The message broker comes last because it adds the most operational surface and the

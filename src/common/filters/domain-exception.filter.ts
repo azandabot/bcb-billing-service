@@ -6,8 +6,9 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 import { DomainError } from '../errors/domain-error';
+import { IdentifiedRequest } from '../logging/request-logger.interceptor';
 import { DomainErrorCode } from '../errors/domain-error-code';
 import { ErrorResponseDto } from './error-response.dto';
 
@@ -37,21 +38,45 @@ export class DomainExceptionFilter implements ExceptionFilter {
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const context = host.switchToHttp();
-    const request = context.getRequest<Request>();
+    const request = context.getRequest<IdentifiedRequest>();
     const response = context.getResponse<Response>();
-    const body = this.toErrorResponse(exception, request.url);
+    const body = this.toErrorResponse(
+      exception,
+      request.url,
+      request.requestId,
+    );
 
     if (body.statusCode >= SERVER_ERROR_THRESHOLD) {
       this.logger.error(
-        `Unhandled exception on ${request.method} ${request.url}`,
+        `Unhandled exception on ${request.method} ${request.url} ${request.requestId ?? ''}`.trim(),
         exception instanceof Error ? exception.stack : String(exception),
       );
     }
 
-    response.status(body.statusCode).json(body);
+    // An error thrown after the response has begun cannot be answered with a
+    // second one. Writing anyway would throw inside the error handler itself.
+    if (response.headersSent) {
+      this.logger.warn(
+        `Response already sent for ${request.method} ${request.url}, could not deliver ${body.code}`,
+      );
+      return;
+    }
+
+    try {
+      response.status(body.statusCode).json(body);
+    } catch (writeError: unknown) {
+      this.logger.error(
+        `Failed to write the error response for ${request.method} ${request.url}`,
+        writeError instanceof Error ? writeError.stack : String(writeError),
+      );
+    }
   }
 
-  private toErrorResponse(exception: unknown, path: string): ErrorResponseDto {
+  private toErrorResponse(
+    exception: unknown,
+    path: string,
+    requestId?: string,
+  ): ErrorResponseDto {
     const timestamp = new Date().toISOString();
 
     if (exception instanceof DomainError) {
@@ -61,6 +86,7 @@ export class DomainExceptionFilter implements ExceptionFilter {
         message: exception.message,
         path,
         timestamp,
+        ...(requestId ? { requestId } : {}),
       };
     }
 
@@ -76,6 +102,7 @@ export class DomainExceptionFilter implements ExceptionFilter {
         ...(details ? { details } : {}),
         path,
         timestamp,
+        ...(requestId ? { requestId } : {}),
       };
     }
 
@@ -89,6 +116,7 @@ export class DomainExceptionFilter implements ExceptionFilter {
         message: (exception as Error).message,
         path,
         timestamp,
+        ...(requestId ? { requestId } : {}),
       };
     }
 
@@ -98,6 +126,7 @@ export class DomainExceptionFilter implements ExceptionFilter {
       message: 'An unexpected error occurred',
       path,
       timestamp,
+      ...(requestId ? { requestId } : {}),
     };
   }
 }

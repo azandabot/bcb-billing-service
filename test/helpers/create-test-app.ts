@@ -20,7 +20,7 @@ export async function createTestApp(
     .useValue(new FixedClock(now))
     .compile();
 
-  const app = moduleRef.createNestApplication();
+  const app = moduleRef.createNestApplication({ logger: false });
   await app.init();
   return app;
 }

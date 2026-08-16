@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -21,7 +22,17 @@ async function bootstrap(): Promise<void> {
   SwaggerModule.setup('api/docs', app, document);
 
   const config = app.get(ConfigService<AppConfig, true>);
-  await app.listen(config.getOrThrow('port', { infer: true }));
+  const port = config.getOrThrow('port', { infer: true });
+  await app.listen(port);
+  new Logger('Bootstrap').log(`Billing service listening on port ${port}`);
 }
 
-void bootstrap();
+// A service which cannot start must say why and exit non-zero, otherwise an
+// orchestrator sees a healthy looking process that answers nothing.
+bootstrap().catch((error: unknown) => {
+  new Logger('Bootstrap').fatal(
+    'Failed to start the billing service',
+    error instanceof Error ? error.stack : String(error),
+  );
+  process.exit(1);
+});

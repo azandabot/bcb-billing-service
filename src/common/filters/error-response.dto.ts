@@ -17,6 +17,12 @@ export class ErrorResponseDto {
   })
   details?: string[];
 
+  @ApiPropertyOptional({
+    example: '3f8a1c2e-9b4d-4a71-8f2e-6c5d0b1a7e93',
+    description: 'Correlation id, also returned in the x-request-id header.',
+  })
+  requestId?: string;
+
   @ApiProperty({ example: '/accounts' })
   path!: string;
 
